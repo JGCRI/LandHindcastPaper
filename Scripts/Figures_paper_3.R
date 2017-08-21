@@ -3,14 +3,14 @@
 
 ######################################################################################################################
 ######################################################################################################################
-# 
-# library(ggplot2)
-# library(reshape2)
-# 
-# 
-# 
-# setwd("~/R/LandHindcast")
-# fileLocation <- getwd()
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+
+
+setwd("~/R/LandHindcastPaper")
+fileLocation <- getwd()
 
 
 figurePath <- paste0(fileLocation,"/Outputs/PaperFigures")
@@ -22,139 +22,133 @@ regions <- c( "Africa", "Australia_NZ", "Canada", "China", "Eastern Europe", "Fo
 ######################################################################################################################
 ######################################################################################################################
 
-#Global Bias and Absolute Bias
+# Global Bias and Absolute Bias
 
-  #load table of global statistics for each scenario
-  fore <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_Hist_Forecast/GlobalStats_GCAM_Hist_Forecast.csv"), 
-                    head = TRUE, sep = ",")
-    fore$scenario <- "FY"
-    fore$stat <- c( "bias", "absbias")
-    fore <- fore[,2:ncol(fore)]
-  
-  
-  
-  foreBio <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_Hist_Forecast_Bio/GlobalStats_GCAM_Hist_Forecast_Bio.csv"), 
-                    head = TRUE, sep = ",")
-    foreBio$scenario <- "FYB"
-    foreBio$stat <- c( "bias", "absbias")
-    foreBio <- foreBio[,2:ncol(foreBio)]
-  
-  
-  
-  history <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_History/GlobalStats_GCAM_History.csv"), 
-                    head = TRUE, sep = ",")
-    history$scenario <- "AY"
-    history$stat <- c( "bias", "absbias")
-    history <- history[,2:ncol(history)]
-  
-  
-  
-  historyBio <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_History_Bio/GlobalStats_GCAM_History_Bio.csv"), 
-                       head = TRUE, sep = ",")
-    historyBio$scenario <- "AYB"
-    historyBio$stat <- c( "bias", "absbias")
-    historyBio <- historyBio[,2:ncol(historyBio)]
-  
-  
-  
-  #Combine scenarios, transition from wide to long format:
-  data <- rbind(fore, foreBio, history,historyBio) #wide format
-  data[is.na(data)] <- 0 #replace NAs in csv with 0
-  data1 <- melt(data, id.vars=c("scenario","stat"), variable.name="crop") #long format
-  ind <- which(colnames(data1) == "variable")
-  colnames(data1)[ind] <- "crop"
-  
-  
-  unifBias <- subset(data1, data1$stat=="bias")
-    p1 <- ggplot(unifBias,aes(x=crop,y=value,color=scenario,group=scenario))+geom_polygon(fill=NA)+coord_polar()
-    p1 <- p1 + geom_rect(aes(xmin=0,ymin=0,xmax=3*pi,ymax=0), fill=NA, color="black", linetype="dotted", size=0.25) #ref circle for bias=0
-    p1 <- p1 + theme_bw()+ theme(axis.title.x=element_blank()) + ylab(bquote('thousand ' ~km^2))+scale_y_continuous(limits=c(-30,30))
-    p1 <- p1 + ggtitle("Global Bias") 
-  ggsave(paste0(figurePath,"/GlobalBias.pdf"),p1, height=7, width=8, units="in")
-  
-  
-    
-  unifAbsBias <- subset(data1, data1$stat=="absbias")
-    p3 <- ggplot(unifAbsBias,aes(x=crop,y=value,color=scenario,group=scenario))+geom_polygon(fill=NA)+coord_polar()
-    p3 <- p3 + geom_rect(aes(xmin=0,ymin=0,xmax=3*pi,ymax=0), fill=NA, color="black", linetype="dotted", size=0.25) #ref circle for bias=0
-    p3 <- p3 + theme_bw()+ theme(axis.title.x=element_blank() ) + ylab(bquote('thousand ' ~km^2))+scale_y_continuous(limits=c(0,38))
-    p3 <- p3 + ggtitle("Global Absolute Bias")
-    
-    ggsave(paste0(figurePath,"/GlobalAbsBias.pdf"),p3, height=7, width=8, units="in")
+# load table of global statistics for each scenario
+fore <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_Hist_Forecast/GlobalStats_GCAM_Hist_Forecast.csv"), 
+                  head = TRUE, sep = ",") %>%
+  mutate(scenario = "FY") %>%
+  rename(stat = X)
 
+
+foreBio <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_Hist_Forecast_Bio/GlobalStats_GCAM_Hist_Forecast_Bio.csv"), 
+                     head = TRUE, sep = ",") %>%
+  mutate(scenario = "FYB") %>%
+  rename(stat = X)
+
+
+history <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_History/GlobalStats_GCAM_History.csv"), 
+                     head = TRUE, sep = ",") %>%
+  mutate(scenario = "AY") %>%
+  rename(stat = X)
+
+
+historyBio <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_History_Bio/GlobalStats_GCAM_History_Bio.csv"), 
+                        head = TRUE, sep = ",") %>%
+  mutate(scenario = "AYB") %>%
+  rename(stat = X)
+
+
+# Combine scenarios, transition from wide to long format:
+bind_rows(fore,
+          foreBio,
+          history, 
+          historyBio) %>%
+  gather(crop, value, -stat, -scenario) %>%
+  replace_na(list(value = 0)) -> 
+  data1
+
+
+# plot  
+data1 %>%
+  filter(stat == "bias") ->
+  unifBias 
+p1 <- ggplot(unifBias,aes(x=crop,y=value,color=scenario,group=scenario))+geom_polygon(fill=NA)+coord_polar() +
+  geom_rect(aes(xmin=0,ymin=0,xmax=3*pi,ymax=0), fill=NA, color="black", linetype="dotted", size=0.25) + #ref circle for bias=0
+  theme_bw()+ theme(axis.title.x=element_blank()) + ylab(bquote('thousand ' ~km^2)) + scale_y_continuous(limits=c(-30,30)) +
+  ggtitle("Global Bias") 
+ggsave(paste0(figurePath,"/GlobalBias.pdf"),p1, height=7, width=8, units="in")
+
+
+data1 %>%
+  filter(stat == "absbias") ->
+  unifAbsBias
+p3 <- ggplot(unifAbsBias,aes(x=crop,y=value,color=scenario,group=scenario))+geom_polygon(fill=NA)+coord_polar() +
+  geom_rect(aes(xmin=0,ymin=0,xmax=3*pi,ymax=0), fill=NA, color="black", linetype="dotted", size=0.25) + #ref circle for bias=0
+  theme_bw()+ theme(axis.title.x=element_blank() ) + ylab(bquote('thousand ' ~km^2))+scale_y_continuous(limits=c(0,38)) +
+  ggtitle("Global Absolute Bias")
+ggsave(paste0(figurePath,"/GlobalAbsBias.pdf"),p3, height=7, width=8, units="in")
 
 
 ######################################################################################################################
 ######################################################################################################################
   
 # Normalized RMSE - regional for wheat and all crops for USA
-  
-  fore <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_Hist_Forecast/NRMSE_GCAM_Hist_Forecast.csv"), 
-                    head = TRUE, sep = ",")
-  fore$scenario <- "FY"
-  fore$region <- regions
-  fore <- fore[,2:ncol(fore)]
-  
-  
-  
-  foreBio <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_Hist_Forecast_Bio/NRMSE_GCAM_Hist_Forecast_Bio.csv"), 
-                       head = TRUE, sep = ",")
-  foreBio$scenario <- "FYB"
-  foreBio$region <- regions
-  foreBio <- foreBio[,2:ncol(foreBio)]
-  
-  
-  
-  history <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_History/NRMSE_GCAM_History.csv"), 
-                       head = TRUE, sep = ",")
-  history$scenario <- "AY"
-  history$region <- regions
-  history <- history[,2:ncol(history)]
-  
-  
-  
-  historyBio <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_History_Bio/NRMSE_GCAM_History_Bio.csv"), 
-                          head = TRUE, sep = ",")
-  historyBio$scenario <- "AYB"
-  historyBio$region <- regions
-  historyBio <- historyBio[,2:ncol(historyBio)]
-  
-  
-  #Combine scenarios, transition from wide to long format:
-  data <- rbind(fore, foreBio, history,historyBio) #wide format
-  data[is.na(data)] <- 0 #replace NAs in csv with 0
-  data1 <- melt(data, id.vars=c("scenario","region"), variable.name="crop") #long format
-  ind <- which(colnames(data1)=="variable")
-  colnames(data1)[ind] <- "crop"
 
-  
-  # Plot All regions for wheat
-    crp <- "Wheat"
-    dat <- subset(data1, data1$crop==crp)
-    
-    ymax <- max(dat$value)
-    
-    p1 <- ggplot(dat,aes(x=region,y=value,color=scenario,group=scenario))+coord_polar()+geom_polygon(fill=NA)
-    p1 <- p1 + geom_rect(aes(xmin=0,ymin=1,xmax=4.6*pi,ymax=1), fill=NA, color="black", linetype="dotted", size=0.25) #ref circle for bias=0
-    p1 <- p1 + theme_bw()+ theme(axis.title.x=element_blank(), axis.title.y=element_blank() )+scale_y_continuous(limits=c(0,ymax))
-    p1 <- p1 + ggtitle(paste("Normalized RMSE,", crp)) 
-    
-    ggsave(paste0(figurePath,"/RegionalNRMS_", crp,".pdf"),p1, height=7, width=8, units="in")  
-  
-  
-    
-  # Plot All crops for USA
-    rgn <- "USA"
-    dat <- subset(data1, data1$region==rgn)
-    ymax <- max(dat$value)
-      
-    p1 <- ggplot(dat,aes(x=crop,y=value,color=scenario,group=scenario))+geom_polygon(fill=NA)+coord_polar()
-    p1 <- p1 + geom_rect(aes(xmin=0,ymin=1,xmax=3*pi,ymax=1), fill=NA, color="black", linetype="dotted", size=0.25) #ref circle for bias=0
-    p1 <- p1 + theme_bw()+ theme(axis.title.x=element_blank(), axis.title.y=element_blank() )+scale_y_continuous(limits=c(0,ymax)) 
-    p1 <- p1 + ggtitle(paste("Normalized RMSE,", rgn)) 
-      
-    ggsave(paste0(figurePath,"/NRMS_", rgn,".pdf"),p1, height=7, width=8, units="in")  
-    
+fore <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_Hist_Forecast/NRMSE_GCAM_Hist_Forecast.csv"), 
+                  head = TRUE, sep = ",") %>%
+  mutate(scenario = "FY") %>%
+  rename(region = X)
+
+
+foreBio <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_Hist_Forecast_Bio/NRMSE_GCAM_Hist_Forecast_Bio.csv"), 
+                     head = TRUE, sep = ",") %>%
+  mutate(scenario = "FYB") %>%
+  rename(region = X)
+
+
+history <-  read.csv(file=paste0(fileLocation,"/Outputs/GCAM_History/NRMSE_GCAM_History.csv"), 
+                     head = TRUE, sep = ",") %>%
+  mutate(scenario = "AY") %>%
+  rename(region = X)
+
+
+historyBio <- read.csv(file=paste0(fileLocation,"/Outputs/GCAM_History_Bio/NRMSE_GCAM_History_Bio.csv"), 
+                       head = TRUE, sep = ",") %>%
+  mutate(scenario = "AYB") %>%
+  rename(region = X)
+
+
+# Combine scenarios, transition from wide to long format:
+bind_rows(fore,
+          foreBio,
+          history, 
+          historyBio) %>%
+  gather(crop, value, -region, -scenario) %>%
+  replace_na(list(value = 0)) -> 
+  data1
+
+
+# Plot All regions for wheat
+data1 %>%
+  filter(crop == "Wheat") ->
+  dat
+
+crp <- unique(dat$crop)
+ymax <- max(dat$value)
+
+p1 <- ggplot(dat,aes(x=region,y=value,color=scenario,group=scenario))+coord_polar()+geom_polygon(fill=NA)+ 
+  geom_rect(aes(xmin=0,ymin=1,xmax=4.6*pi,ymax=1), fill=NA, color="black", linetype="dotted", size=0.25) + #ref circle for bias=0
+  theme_bw()+ theme(axis.title.x=element_blank(), axis.title.y=element_blank() )+scale_y_continuous(limits=c(0,ymax)) +
+  ggtitle(paste("Normalized RMSE,", crp)) 
+ggsave(paste0(figurePath,"/RegionalNRMS_", crp,".pdf"),p1, height=7, width=8, units="in")  
+
+
+
+# Plot All crops for USA
+data1 %>%
+  filter(region == "USA") ->
+  dat
+
+rgn <- unique(dat$region)
+ymax <- max(dat$value)
+
+p1 <- ggplot(dat,aes(x=crop,y=value,color=scenario,group=scenario))+geom_polygon(fill=NA)+coord_polar() +
+  geom_rect(aes(xmin=0,ymin=1,xmax=3*pi,ymax=1), fill=NA, color="black", linetype="dotted", size=0.25) + #ref circle for bias=0
+  theme_bw()+ theme(axis.title.x=element_blank(), axis.title.y=element_blank() )+scale_y_continuous(limits=c(0,ymax)) +
+  ggtitle(paste("Normalized RMSE,", rgn)) 
+ggsave(paste0(figurePath,"/NRMS_", rgn,".pdf"),p1, height=7, width=8, units="in")  
+
     
 ######################################################################################################################
 ######################################################################################################################
