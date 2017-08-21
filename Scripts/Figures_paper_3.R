@@ -3,14 +3,14 @@
 
 ######################################################################################################################
 ######################################################################################################################
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-
-
-
-setwd("~/R/LandHindcastPaper")
-fileLocation <- getwd()
+# library(ggplot2)
+# library(dplyr)
+# library(tidyr)
+# 
+# 
+# 
+# setwd("~/R/LandHindcastPaper")
+# fileLocation <- getwd()
 
 
 figurePath <- paste0(fileLocation,"/Outputs/PaperFigures")
